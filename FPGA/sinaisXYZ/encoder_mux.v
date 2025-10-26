@@ -1,15 +1,12 @@
-// ========================================================
-// Gerador dos sinais do encoder (canais X, Y e Z)
-// ========================================================
+
 
 // --------------------------------------------------------
-// Divisor de clock - base de tempo para os sinais X, Y, Z
+// Divisor de clock - base de tempo dos sinais X, Y, Z
 // --------------------------------------------------------
 module clockDivider1(
     input clki,
     output clko
 );
-    // Ajuste conforme a velocidade simulada
     // 450 m/min: DIV=3141 | 600 m/min: DIV=2356 | teste rápido: DIV=100
     parameter DIV = 100;
 
@@ -29,7 +26,7 @@ module clockDivider1(
 endmodule
 
 // --------------------------------------------------------
-// Gerador dos canais X e Y (quadratura)
+// Gerador dos canais X e Y (sinais em quadratura)
 // --------------------------------------------------------
 module genXY(
     input clkTz,
@@ -70,7 +67,7 @@ module genZ(
         else
             i <= i + 1;
 
-         // Pulso de 5 ciclos
+        // Pulso de 5 ciclos
         if (i < 5)
             outZ <= 1'b1;
         else
@@ -80,34 +77,62 @@ module genZ(
     assign Z = outZ;
 endmodule
 
+// --------------------------------------------------------
+// Concentrador MUX
+// --------------------------------------------------------
+module mux4_encoder(
+    input clk50,
+    input encX,
+    input encY,
+    input pulse,
+    input cte,
+    output reg Ths = 0,
+    output reg [1:0] sel = 0
+);
+    always @(posedge clk50) begin
+        sel <= sel + 1;  // Contador 0–3 
 
+        case (sel)
+            2'b00: Ths <= encX;
+            2'b01: Ths <= encY;
+            2'b10: Ths <= pulse;
+            2'b11: Ths <= cte;
+            default: Ths <= 1'b0;
+        endcase
+    end
+endmodule
 
 
 // --------------------------------------------------------
-// Top-level
+// Top-level do sistema 
 // --------------------------------------------------------
 module vincador_top(
-    input CLOCK_50,   // clock de entrada (50 MHz simulado)
-    output X, Y, Z
+    input CLOCK_50,
+    output X, Y, Z,
+    output Ths,
+    output [1:0] sel
 );
     wire clkTz;
+    wire cte = 1'b1; // constante
 
     // Clock base
-    clockDivider1 #(.DIV(100)) div1 (
+    clockDivider1 #(.DIV(2)) div1 (
         .clki(CLOCK_50),
         .clko(clkTz)
     );
 
-    // Geração dos sinais X e Y
-    genXY xygen (
-        .clkTz(clkTz),
-        .X(X),
-        .Y(Y)
-    );
+    // Geração dos sinais do encoder
+    genXY xygen (.clkTz(clkTz), .X(X), .Y(Y));
+    genZ zgen   (.clkTz(clkTz), .Z(Z));
 
-    // Geração do pulso Z
-    genZ zgen (
-        .clkTz(clkTz),
-        .Z(Z)
+    // MUX síncrono
+    mux4_encoder mux (
+        .clk50(CLOCK_50),
+        .encX(X),
+        .encY(Y),
+        .pulse(Z),
+        .cte(cte),
+        .Ths(Ths),
+        .sel(sel)
     );
 endmodule
