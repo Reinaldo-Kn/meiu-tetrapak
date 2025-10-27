@@ -90,7 +90,7 @@ module mux4_encoder(
     output reg [1:0] sel = 0
 );
     always @(posedge clk50) begin
-        sel <= sel + 1;  // Contador 0–3 
+        
 
         case (sel)
             2'b00: Ths <= encX;
@@ -99,6 +99,7 @@ module mux4_encoder(
             2'b11: Ths <= cte;
             default: Ths <= 1'b0;
         endcase
+        sel <= sel + 1;  // Contador 0–3 
     end
 endmodule
 
